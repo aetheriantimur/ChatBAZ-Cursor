@@ -1,5 +1,16 @@
 # ChatBAZ Cursor Quickstart
 
+## Cursor Mandatory Step (All OS)
+
+Before anything else, set customer key inside Cursor:
+
+1. Open Cursor settings.
+2. Search `anthropic`.
+3. Paste ChatBAZ key into Anthropic API key field.
+4. Save and restart Cursor.
+
+If this is missing, proxy still works but auth fails upstream because no `x-api-key` is sent.
+
 ## macOS
 
 ```bash

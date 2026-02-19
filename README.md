@@ -26,6 +26,19 @@ Cursor IDE
 - Cursor IDE
 - `mitmproxy` certificate trusted by your OS
 
+## Cursor Inside Mandatory Setup
+
+`ChatBAZ Cursor` only forwards what Cursor sends.  
+If Cursor does not send `x-api-key`, upstream auth fails.
+
+Do this on every client machine:
+
+1. Open Cursor settings.
+2. Find Anthropic provider/API key settings (search: `anthropic`).
+3. Paste the customer ChatBAZ key into Anthropic API key field.
+4. Save settings and fully restart Cursor.
+5. Start proxy in verbose mode and confirm there is no `forwarded without x-api-key` warning.
+
 ## Command Reference
 
 ### macOS / Linux
