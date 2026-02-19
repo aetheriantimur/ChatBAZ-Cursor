@@ -89,13 +89,8 @@ def build_upstream_path(original_path: str) -> str:
 
 
 def has_x_api_key(headers: Any) -> bool:
-    for key in headers.keys():
-        if key.lower() == "x-api-key":
-            value = headers.get(key, "")
-            if isinstance(value, str) and value.strip():
-                return True
-            return False
-    return False
+    value = headers.get("x-api-key", "")
+    return isinstance(value, str) and bool(value.strip())
 
 
 class ChatBAZCursorAddon:
@@ -148,7 +143,6 @@ class ChatBAZCursorAddon:
             self.logger.debug(f"Upstream response #{request_id}: {status}")
 
 
-addon_instance = None
 addons = []
 
 
@@ -210,9 +204,8 @@ def start_proxy(args: argparse.Namespace) -> int:
 
     logger.info(f"Starting {APP_NAME} proxy on port {args.port}")
 
-    global addon_instance, addons
-    addon_instance = ChatBAZCursorAddon(logger)
-    addons = [addon_instance]
+    global addons
+    addons = [ChatBAZCursorAddon(logger)]
 
     sys.argv = [
         "mitmdump",
@@ -270,10 +263,8 @@ Examples:
 
     if not args.command:
         args.command = "start"
-        if not hasattr(args, "port"):
-            args.port = 8080
-        if not hasattr(args, "verbose"):
-            args.verbose = False
+        args.port = 8080
+        args.verbose = False
 
     return args
 
