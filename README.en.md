@@ -1,43 +1,41 @@
 # ChatBAZ Cursor
 
-ChatBAZ Cursor, Cursor trafiği için yerel bir proxy köprüsüdür.
+ChatBAZ Cursor is a local proxy bridge for Cursor traffic.
 
-Proxy'ye gelen aşağıdaki istekleri yeniden yönlendirir:
+It rewrites requests that reach the proxy as:
 
 - `api.anthropic.com/...` -> `https://chatbaz.app/claude/...`
 
-ve gelen `x-api-key` başlığını değiştirmeden iletir.
+and forwards incoming `x-api-key` unchanged.
 
-English version: [`README.en.md`](README.en.md)
+## Critical Rule (Must Read)
 
-## Kritik Kural (Mutlaka Okuyun)
+This proxy **does not** capture all system traffic automatically.
 
-Bu proxy sistemdeki tüm trafiği otomatik yakalamaz.
+It only processes traffic that is explicitly sent to proxy (`127.0.0.1:8080`).
 
-Sadece proxy'ye (`127.0.0.1:8080`) açıkça gönderilen trafiği işler.
+If Cursor is not started with proxy settings, **nothing is intercepted**.
 
-Cursor proxy ayarıyla başlatılmazsa hiçbir istek yakalanmaz.
+## What Customers Must Configure in Cursor
 
-## Müşterinin Cursor İçinde Yapması Gerekenler
+On every customer machine:
 
-Her müşteri makinesinde:
+1. Open Cursor settings.
+2. Search `anthropic`.
+3. Paste customer ChatBAZ key into Anthropic API key field.
+4. Save and restart Cursor.
 
-1. Cursor ayarlarını açın.
-2. `anthropic` aratın.
-3. Anthropic API key alanına müşteri ChatBAZ key'ini girin.
-4. Kaydedip Cursor'u yeniden başlatın.
+If this is missing, requests may reach proxy but upstream auth fails.
 
-Bu adım eksikse, istek proxy'ye gelse bile upstream kimlik doğrulaması başarısız olur.
+## Standard Operating Flow (All Platforms)
 
-## Standart Çalıştırma Akışı (Tüm Platformlar)
+1. Install dependencies.
+2. Generate and trust mitmproxy CA certificate.
+3. Start proxy in Terminal 1.
+4. Start Cursor with proxy env vars in Terminal 2.
+5. Validate with `test` command.
 
-1. Bağımlılıkları kurun.
-2. mitmproxy CA sertifikasını üretip sisteme güvenilir ekleyin.
-3. Terminal 1'de proxy'yi başlatın.
-4. Terminal 2'de Cursor'u proxy env ile başlatın.
-5. `test` komutuyla doğrulayın.
-
-## Komutlar
+## Commands
 
 ### Proxy
 
@@ -59,7 +57,7 @@ Windows CMD:
 py -3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-### Upstream erişim testi
+### Upstream auth check
 
 macOS/Linux:
 
@@ -83,20 +81,20 @@ py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 
 ## macOS Runbook
 
-### 1. Bağımlılıkları kurun
+### 1. Install dependencies
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-### 2. Sertifika üretin (tek sefer)
+### 2. Generate certificate (once)
 
 ```bash
 mitmproxy
-# açıldıktan sonra Ctrl+C
+# wait for startup, then Ctrl+C
 ```
 
-### 3. Sertifikayı güvenilir yapın (tek sefer)
+### 3. Trust certificate (once)
 
 ```bash
 sudo security add-trusted-cert -d -r trustRoot \
@@ -104,25 +102,25 @@ sudo security add-trusted-cert -d -r trustRoot \
   ~/.mitmproxy/mitmproxy-ca-cert.pem
 ```
 
-### 4. Terminal 1: Proxy başlat
+### 4. Terminal 1: Start proxy
 
 ```bash
 python3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-### 5. Terminal 2: Cursor'u proxy env ile başlat
+### 5. Terminal 2: Start Cursor with proxy env
 
 ```bash
 ./scripts/start-cursor-with-proxy.sh
 ```
 
-Özel port örneği:
+Optional custom proxy port:
 
 ```bash
 CHATBAZ_PROXY_PORT=9090 ./scripts/start-cursor-with-proxy.sh
 ```
 
-### 6. Doğrula
+### 6. Validate
 
 ```bash
 python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
@@ -132,20 +130,20 @@ python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 
 ## Linux Runbook
 
-### 1. Bağımlılıkları kurun
+### 1. Install dependencies
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-### 2. Sertifika üretin (tek sefer)
+### 2. Generate certificate (once)
 
 ```bash
 mitmproxy
-# açıldıktan sonra Ctrl+C
+# wait for startup, then Ctrl+C
 ```
 
-### 3. Sertifikayı güvenilir yapın (tek sefer)
+### 3. Trust certificate (once)
 
 Debian / Ubuntu:
 
@@ -161,25 +159,25 @@ sudo cp ~/.mitmproxy/mitmproxy-ca-cert.pem /etc/pki/ca-trust/source/anchors/mitm
 sudo update-ca-trust
 ```
 
-### 4. Terminal 1: Proxy başlat
+### 4. Terminal 1: Start proxy
 
 ```bash
 python3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-### 5. Terminal 2: Cursor'u proxy env ile başlat
+### 5. Terminal 2: Start Cursor with proxy env
 
 ```bash
 ./scripts/start-cursor-with-proxy.sh
 ```
 
-Özel port örneği:
+Optional custom proxy port:
 
 ```bash
 CHATBAZ_PROXY_PORT=9090 ./scripts/start-cursor-with-proxy.sh
 ```
 
-### 6. Doğrula
+### 6. Validate
 
 ```bash
 python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
@@ -189,44 +187,44 @@ python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 
 ## Windows Runbook (PowerShell)
 
-### 1. Bağımlılıkları kurun
+### 1. Install dependencies
 
 ```powershell
 py -3 -m pip install -r requirements.txt
 ```
 
-### 2. Sertifika üretin (tek sefer)
+### 2. Generate certificate (once)
 
 ```powershell
 mitmproxy
-# açıldıktan sonra Ctrl+C
+# wait for startup, then Ctrl+C
 ```
 
-### 3. Sertifikayı güvenilir yapın (tek sefer, Yönetici PowerShell)
+### 3. Trust certificate (once, Admin PowerShell)
 
 ```powershell
 certutil -addstore "Root" "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.pem"
 ```
 
-### 4. Terminal 1: Proxy başlat
+### 4. Terminal 1: Start proxy
 
 ```powershell
 py -3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-### 5. Terminal 2: Cursor'u proxy env ile başlat
+### 5. Terminal 2: Start Cursor with proxy env
 
 ```powershell
 ./scripts/start-cursor-with-proxy.ps1
 ```
 
-Özel port örneği:
+Optional custom proxy port:
 
 ```powershell
 ./scripts/start-cursor-with-proxy.ps1 -ProxyPort 9090
 ```
 
-### 6. Doğrula
+### 6. Validate
 
 ```powershell
 py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
@@ -236,44 +234,44 @@ py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 
 ## Windows Runbook (CMD)
 
-### 1. Bağımlılıkları kurun
+### 1. Install dependencies
 
 ```cmd
 py -3 -m pip install -r requirements.txt
 ```
 
-### 2. Sertifika üretin (tek sefer)
+### 2. Generate certificate (once)
 
 ```cmd
 mitmproxy
-REM açıldıktan sonra Ctrl+C
+REM wait for startup, then Ctrl+C
 ```
 
-### 3. Sertifikayı güvenilir yapın (tek sefer, Yönetici CMD)
+### 3. Trust certificate (once, Admin CMD)
 
 ```cmd
 certutil -addstore Root "%USERPROFILE%\.mitmproxy\mitmproxy-ca-cert.pem"
 ```
 
-### 4. Terminal 1: Proxy başlat
+### 4. Terminal 1: Start proxy
 
 ```cmd
 py -3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-### 5. Terminal 2: Cursor'u proxy env ile başlat
+### 5. Terminal 2: Start Cursor with proxy env
 
 ```cmd
 scripts\start-cursor-with-proxy.cmd
 ```
 
-Özel port örneği:
+Optional custom proxy port:
 
 ```cmd
 scripts\start-cursor-with-proxy.cmd 9090
 ```
 
-### 6. Doğrula
+### 6. Validate
 
 ```cmd
 py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
@@ -281,32 +279,32 @@ py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 
 ---
 
-## İstek Eşleme
+## Request Mapping
 
-Gelen (proxy'ye):
+Incoming (to proxy):
 
 - Host: `api.anthropic.com`
 - Path: `/v1/messages`
-- Header: `x-api-key: <gelen-değer>`
+- Header: `x-api-key: <incoming-value>`
 
-Giden (proxy'den):
+Outgoing (from proxy):
 
 - Host: `chatbaz.app`
 - Path: `/claude/v1/messages`
-- Header: `x-api-key: <gelen-değer>`
+- Header: `x-api-key: <incoming-value>`
 
-## Sorun Giderme
+## Troubleshooting
 
-- Upstream `401/403`: Cursor key eksik/geçersiz.
-- Proxy log yok: Cursor proxy env ile başlatılmamış.
-- TLS hatası: CA kurulumu veya `NODE_EXTRA_CA_CERTS` eksik.
-- Port çakışması: Proxy'yi farklı portla açın, Cursor başlatma scriptinde aynı portu kullanın.
+- `401/403` upstream: Cursor key missing/invalid.
+- No proxy logs: Cursor was not started through proxy env.
+- TLS error: CA not trusted or `NODE_EXTRA_CA_CERTS` missing.
+- Port in use: run proxy with `--port`, then start cursor scripts with same port.
 
-## Çalışma Dosyaları
+## Runtime Files
 
-- Loglar: `~/.chatbaz-cursor/proxy.log`
+- Logs: `~/.chatbaz-cursor/proxy.log`
 
-## Güvenlik
+## Security
 
-- Proxy sadece localhost dinler.
-- Bu proje API key saklamaz.
+- Proxy listens on localhost only.
+- API keys are not persisted by this project.
