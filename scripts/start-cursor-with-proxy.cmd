@@ -2,8 +2,14 @@
 setlocal
 REM Start Cursor with ChatBAZ proxy environment variables (Windows CMD)
 
-set "PROXY_PORT=%~1"
-if "%PROXY_PORT%"=="" set "PROXY_PORT=8080"
+set "PROXY_PORT=8080"
+if not "%~1"=="" (
+  echo %~1| findstr /r "^[0-9][0-9]*$" >nul
+  if not errorlevel 1 (
+    set "PROXY_PORT=%~1"
+    shift
+  )
+)
 
 echo 🚀 ChatBAZ Cursor - Start Cursor With Proxy (CMD)
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
