@@ -51,6 +51,12 @@ Windows PowerShell:
 py -3 chatbaz-cursor-proxy.py start --verbose
 ```
 
+Windows CMD:
+
+```cmd
+py -3 chatbaz-cursor-proxy.py start --verbose
+```
+
 ### Upstream auth check
 
 macOS/Linux:
@@ -62,6 +68,12 @@ python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 Windows PowerShell:
 
 ```powershell
+py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
+```
+
+Windows CMD:
+
+```cmd
 py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
@@ -215,6 +227,53 @@ Optional custom proxy port:
 ### 6. Validate
 
 ```powershell
+py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
+```
+
+---
+
+## Windows Runbook (CMD)
+
+### 1. Install dependencies
+
+```cmd
+py -3 -m pip install -r requirements.txt
+```
+
+### 2. Generate certificate (once)
+
+```cmd
+mitmproxy
+REM wait for startup, then Ctrl+C
+```
+
+### 3. Trust certificate (once, Admin CMD)
+
+```cmd
+certutil -addstore Root "%USERPROFILE%\.mitmproxy\mitmproxy-ca-cert.pem"
+```
+
+### 4. Terminal 1: Start proxy
+
+```cmd
+py -3 chatbaz-cursor-proxy.py start --verbose
+```
+
+### 5. Terminal 2: Start Cursor with proxy env
+
+```cmd
+scripts\start-cursor-with-proxy.cmd
+```
+
+Optional custom proxy port:
+
+```cmd
+scripts\start-cursor-with-proxy.cmd 9090
+```
+
+### 6. Validate
+
+```cmd
 py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 

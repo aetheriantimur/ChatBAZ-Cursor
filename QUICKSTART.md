@@ -117,6 +117,42 @@ py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 
 ---
 
+## Windows CMD (copy/paste)
+
+Terminal 1:
+
+```cmd
+py -3 -m pip install -r requirements.txt
+mitmproxy
+REM Ctrl+C after startup
+```
+
+Admin CMD (once):
+
+```cmd
+certutil -addstore Root "%USERPROFILE%\.mitmproxy\mitmproxy-ca-cert.pem"
+```
+
+Then start proxy (Terminal 1):
+
+```cmd
+py -3 chatbaz-cursor-proxy.py start --verbose
+```
+
+Terminal 2:
+
+```cmd
+scripts\start-cursor-with-proxy.cmd
+```
+
+Check:
+
+```cmd
+py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
+```
+
+---
+
 ## Expected Behavior
 
 - Intercepts only proxied requests to `api.anthropic.com`

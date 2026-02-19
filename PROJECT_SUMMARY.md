@@ -12,6 +12,7 @@ Requests targeting `api.anthropic.com` are rewritten to `https://chatbaz.app/cla
 - `scripts/install-ca-cert.sh`: certificate installer
 - `scripts/start-cursor-with-proxy.sh`: starts Cursor with proxy vars (macOS/Linux)
 - `scripts/start-cursor-with-proxy.ps1`: starts Cursor with proxy vars (Windows PowerShell)
+- `scripts/start-cursor-with-proxy.cmd`: starts Cursor with proxy vars (Windows CMD)
 - `README.md`: full guide
 - `QUICKSTART.md`: fast setup steps
 
