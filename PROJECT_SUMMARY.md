@@ -4,7 +4,7 @@
 
 `ChatBAZ Cursor` is a local mitmproxy adapter for Cursor traffic.
 
-Requests targeting `api.anthropic.com` are rewritten to `https://chatbaz.app/claude` and sent with stored `x-api-key` credentials.
+Requests targeting `api.anthropic.com` are rewritten to `https://chatbaz.app/claude`. Incoming `x-api-key` is forwarded unchanged.
 
 ## Main Files
 
@@ -16,24 +16,12 @@ Requests targeting `api.anthropic.com` are rewritten to `https://chatbaz.app/cla
 
 ## Runtime Paths
 
-- Credentials: `~/.chatbaz-cursor/credentials.json`
 - Logs: `~/.chatbaz-cursor/proxy.log`
-
-## Credential Format
-
-```json
-{
-  "api_key": "...",
-  "created_at": 1735686000000,
-  "updated_at": 1735689600000
-}
-```
 
 ## CLI
 
-- `set-key`: save local API key
 - `start`: run proxy on localhost
-- `test`: validate upstream access
+- `test --api-key <KEY>`: validate upstream access
 
 ## Request Flow
 
@@ -44,16 +32,15 @@ Requests targeting `api.anthropic.com` are rewritten to `https://chatbaz.app/cla
    - scheme -> `https`
    - port -> `443`
    - path -> `/claude` + original path
-4. Header enforcement:
-   - remove `authorization` if present
-   - set `x-api-key` from local credentials
+4. Headers:
+   - `x-api-key` is passed through unchanged.
 5. Request forwarded upstream.
 
 ## Error Handling
 
-- Missing key: `401` with `set-key` action.
+- Missing incoming `x-api-key`: request is still forwarded; upstream decides auth result.
 - Upstream failures: logged with request id.
 
 ## Version
 
-- Current version: `1.0.0`
+- Current version: `1.1.0`

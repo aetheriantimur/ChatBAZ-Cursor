@@ -2,15 +2,14 @@
 
 `ChatBAZ Cursor` is a local mitmproxy adapter for Cursor.
 
-It intercepts requests targeting `api.anthropic.com`, rewrites them to `https://chatbaz.app/claude`, and injects your stored `x-api-key` automatically.
+It intercepts requests targeting `api.anthropic.com`, rewrites them to `https://chatbaz.app/claude`, and forwards the incoming `x-api-key` header as-is.
 
 ## Features
 
-- API key based authentication via `x-api-key`
 - Host rewrite: `api.anthropic.com` -> `chatbaz.app/claude`
 - Path and query preservation
-- Local credential storage with `0600` permissions
-- Rotating logs under `~/.chatbaz-cursor/`
+- Incoming `x-api-key` passthrough (no local key storage)
+- Rotating logs under `~/.chatbaz-cursor/proxy.log`
 
 ## Requirements
 
@@ -41,19 +40,9 @@ py -3 -m pip install -r requirements.txt
 
 ## Platform Setup and Usage
 
-### 1. Save API key
+### 1. Configure Cursor API key
 
-#### macOS / Linux
-
-```bash
-python3 chatbaz-cursor-proxy.py set-key
-```
-
-#### Windows (PowerShell)
-
-```powershell
-py -3 chatbaz-cursor-proxy.py set-key
-```
+Set your ChatBAZ key in Cursor where `x-api-key` is sent for Anthropic requests.
 
 ### 2. Generate mitmproxy certificate
 
@@ -143,15 +132,7 @@ py -3 chatbaz-cursor-proxy.py start
 
 ### 6. Start Cursor
 
-#### macOS / Linux
-
 ```bash
-cursor .
-```
-
-#### Windows (PowerShell)
-
-```powershell
 cursor .
 ```
 
@@ -160,13 +141,13 @@ cursor .
 #### macOS / Linux
 
 ```bash
-python3 chatbaz-cursor-proxy.py test
+python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
 #### Windows (PowerShell)
 
 ```powershell
-py -3 chatbaz-cursor-proxy.py test
+py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
 ## Commands
@@ -174,20 +155,18 @@ py -3 chatbaz-cursor-proxy.py test
 ### macOS / Linux
 
 ```bash
-python3 chatbaz-cursor-proxy.py set-key
 python3 chatbaz-cursor-proxy.py start
 python3 chatbaz-cursor-proxy.py start --port 9090
-python3 chatbaz-cursor-proxy.py test
+python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 python3 chatbaz-cursor-proxy.py --version
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-py -3 chatbaz-cursor-proxy.py set-key
 py -3 chatbaz-cursor-proxy.py start
 py -3 chatbaz-cursor-proxy.py start --port 9090
-py -3 chatbaz-cursor-proxy.py test
+py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 py -3 chatbaz-cursor-proxy.py --version
 ```
 
@@ -197,35 +176,21 @@ Incoming:
 
 - Host: `api.anthropic.com`
 - Path: `/v1/messages`
+- Header: `x-api-key: <incoming>`
 
 Outgoing:
 
 - Host: `chatbaz.app`
 - Path: `/claude/v1/messages`
-- Header: `x-api-key: <stored key>`
+- Header: `x-api-key: <same incoming value>`
 
 ## Storage
 
-- Credentials: `~/.chatbaz-cursor/credentials.json`
 - Logs: `~/.chatbaz-cursor/proxy.log`
-
-Credential schema:
-
-```json
-{
-  "api_key": "...",
-  "created_at": 1735686000000,
-  "updated_at": 1735689600000
-}
-```
 
 ## Troubleshooting
 
-No API key configured:
-
-```bash
-python3 chatbaz-cursor-proxy.py set-key
-```
+If upstream returns auth errors, verify Cursor is actually sending `x-api-key`.
 
 Certificate errors:
 

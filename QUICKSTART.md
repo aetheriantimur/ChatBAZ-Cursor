@@ -8,11 +8,9 @@
 pip3 install -r requirements.txt
 ```
 
-### 2. Save API key
+### 2. Configure Cursor API key
 
-```bash
-python3 chatbaz-cursor-proxy.py set-key
-```
+Set your ChatBAZ key in Cursor so requests include `x-api-key`.
 
 ### 3. Generate and install cert
 
@@ -37,7 +35,7 @@ export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 ```bash
 python3 chatbaz-cursor-proxy.py start --verbose
 cursor .
-python3 chatbaz-cursor-proxy.py test
+python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
 ## Linux
@@ -48,11 +46,9 @@ python3 chatbaz-cursor-proxy.py test
 pip3 install -r requirements.txt
 ```
 
-### 2. Save API key
+### 2. Configure Cursor API key
 
-```bash
-python3 chatbaz-cursor-proxy.py set-key
-```
+Set your ChatBAZ key in Cursor so requests include `x-api-key`.
 
 ### 3. Generate and install cert
 
@@ -88,7 +84,7 @@ export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 ```bash
 python3 chatbaz-cursor-proxy.py start --verbose
 cursor .
-python3 chatbaz-cursor-proxy.py test
+python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
 ## Windows (PowerShell)
@@ -99,11 +95,9 @@ python3 chatbaz-cursor-proxy.py test
 py -3 -m pip install -r requirements.txt
 ```
 
-### 2. Save API key
+### 2. Configure Cursor API key
 
-```powershell
-py -3 chatbaz-cursor-proxy.py set-key
-```
+Set your ChatBAZ key in Cursor so requests include `x-api-key`.
 
 ### 3. Generate and install cert
 
@@ -141,7 +135,7 @@ setx NODE_EXTRA_CA_CERTS "%USERPROFILE%\.mitmproxy\mitmproxy-ca-cert.pem"
 ```powershell
 py -3 chatbaz-cursor-proxy.py start --verbose
 cursor .
-py -3 chatbaz-cursor-proxy.py test
+py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
 ## Behavior
@@ -149,4 +143,4 @@ py -3 chatbaz-cursor-proxy.py test
 - Intercepts `api.anthropic.com`
 - Forwards to `https://chatbaz.app/claude`
 - Preserves original path/query
-- Injects stored `x-api-key`
+- Passes incoming `x-api-key` directly

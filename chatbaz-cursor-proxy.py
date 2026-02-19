@@ -3,23 +3,19 @@
 ChatBAZ Cursor Proxy
 
 Intercepts Cursor IDE requests targeting api.anthropic.com and rewrites them to
-chatbaz.app/claude while enforcing x-api-key authentication.
+chatbaz.app/claude while preserving incoming x-api-key headers.
 
 Usage:
-    python chatbaz-cursor-proxy.py set-key
     python chatbaz-cursor-proxy.py start
-    python chatbaz-cursor-proxy.py test
+    python chatbaz-cursor-proxy.py test --api-key <KEY>
 """
 
 import argparse
-import getpass
-import json
 import logging
 import sys
-import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     import httpx
@@ -34,7 +30,7 @@ except ImportError as e:
     sys.exit(1)
 
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 APP_NAME = "ChatBAZ Cursor"
 LOGGER_NAME = "chatbaz-cursor-proxy"
 
@@ -45,7 +41,6 @@ UPSTREAM_PORT = 443
 UPSTREAM_PREFIX = "/claude"
 
 STORAGE_DIR = Path.home() / ".chatbaz-cursor"
-CREDENTIAL_FILE = STORAGE_DIR / "credentials.json"
 LOG_FILE = STORAGE_DIR / "proxy.log"
 
 console = Console()
@@ -80,68 +75,6 @@ def setup_logger(verbose: bool = False) -> logging.Logger:
     return logger
 
 
-class CredentialStorage:
-    """Handles local API key storage with strict file permissions."""
-
-    def __init__(self, storage_path: Path = CREDENTIAL_FILE):
-        self.storage_path = storage_path
-
-    def load(self) -> Optional[Dict[str, Any]]:
-        if not self.storage_path.exists():
-            return None
-
-        try:
-            with open(self.storage_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            logging.getLogger(LOGGER_NAME).error(f"Failed to load credentials: {e}")
-            return None
-
-    def save(self, api_key: str) -> None:
-        now_ms = int(time.time() * 1000)
-        existing = self.load() or {}
-        created_at = existing.get("created_at", now_ms)
-
-        payload = {
-            "api_key": api_key,
-            "created_at": created_at,
-            "updated_at": now_ms,
-        }
-
-        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.storage_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
-
-        self.storage_path.chmod(0o600)
-
-    def has_key(self) -> bool:
-        data = self.load()
-        return bool(data and isinstance(data.get("api_key"), str) and data["api_key"].strip())
-
-    def get_key(self) -> Optional[str]:
-        data = self.load()
-        if not data:
-            return None
-        key = data.get("api_key")
-        if not isinstance(key, str):
-            return None
-        key = key.strip()
-        return key or None
-
-    def get_masked_key(self) -> str:
-        key = self.get_key()
-        if not key:
-            return "(not set)"
-        if len(key) <= 8:
-            return "*" * len(key)
-        return f"{key[:4]}...{key[-4:]}"
-
-
-def validate_api_key(api_key: str) -> bool:
-    key = api_key.strip()
-    return len(key) >= 10
-
-
 def ensure_leading_slash(path: str) -> str:
     if not path:
         return "/"
@@ -155,17 +88,20 @@ def build_upstream_path(original_path: str) -> str:
     return f"{UPSTREAM_PREFIX}{path}"
 
 
-def remove_header_case_insensitive(headers: Any, name: str) -> None:
-    for key in list(headers.keys()):
-        if key.lower() == name.lower():
-            del headers[key]
+def has_x_api_key(headers: Any) -> bool:
+    for key in headers.keys():
+        if key.lower() == "x-api-key":
+            value = headers.get(key, "")
+            if isinstance(value, str) and value.strip():
+                return True
+            return False
+    return False
 
 
 class ChatBAZCursorAddon:
     """mitmproxy addon that rewrites source host traffic to ChatBAZ."""
 
-    def __init__(self, storage: CredentialStorage, logger: logging.Logger):
-        self.storage = storage
+    def __init__(self, logger: logging.Logger):
         self.logger = logger
         self.request_count = 0
 
@@ -176,24 +112,6 @@ class ChatBAZCursorAddon:
         self.request_count += 1
         request_id = self.request_count
 
-        api_key = self.storage.get_key()
-        if not api_key:
-            self.logger.error("Request blocked: API key not configured")
-            flow.response = http.Response.make(
-                401,
-                json.dumps(
-                    {
-                        "error": {
-                            "type": "authentication_error",
-                            "message": "ChatBAZ API key is not configured.",
-                        },
-                        "action": "Run: python chatbaz-cursor-proxy.py set-key",
-                    }
-                ),
-                {"Content-Type": "application/json"},
-            )
-            return
-
         original_path = flow.request.path
         rewritten_path = build_upstream_path(original_path)
 
@@ -203,8 +121,9 @@ class ChatBAZCursorAddon:
         flow.request.path = rewritten_path
         flow.request.headers["host"] = UPSTREAM_HOST
 
-        remove_header_case_insensitive(flow.request.headers, "authorization")
-        flow.request.headers["x-api-key"] = api_key
+        key_present = has_x_api_key(flow.request.headers)
+        if not key_present:
+            self.logger.warning(f"Request #{request_id} forwarded without x-api-key")
 
         flow.metadata["chatbaz_cursor_rewritten"] = True
         flow.metadata["chatbaz_cursor_request_id"] = request_id
@@ -233,45 +152,8 @@ addon_instance = None
 addons = []
 
 
-def cmd_set_key(args: argparse.Namespace) -> int:
-    logger = setup_logger(args.verbose)
-    storage = CredentialStorage()
-
-    if args.api_key:
-        api_key = args.api_key.strip()
-    else:
-        console.print(
-            Panel.fit(
-                f"[bold cyan]{APP_NAME} - API Key Setup[/bold cyan]",
-                border_style="cyan",
-            )
-        )
-        api_key = getpass.getpass("Enter ChatBAZ API key: ").strip()
-
-    if not validate_api_key(api_key):
-        console.print("[red]Invalid API key. Expected at least 10 characters.[/red]")
-        return 1
-
-    storage.save(api_key)
-    logger.info("API key saved")
-
-    console.print(
-        Panel.fit(
-            "[bold green]API key saved successfully[/bold green]\n\n"
-            f"Location: [cyan]{CREDENTIAL_FILE}[/cyan]\n"
-            f"Stored key: [yellow]{storage.get_masked_key()}[/yellow]\n\n"
-            "Start proxy with:\n"
-            "[bold]  python chatbaz-cursor-proxy.py start[/bold]",
-            border_style="green",
-        )
-    )
-
-    return 0
-
-
 async def cmd_test(args: argparse.Namespace) -> int:
     logger = setup_logger(args.verbose)
-    storage = CredentialStorage()
 
     console.print(
         Panel.fit(
@@ -280,19 +162,11 @@ async def cmd_test(args: argparse.Namespace) -> int:
         )
     )
 
-    if not storage.has_key():
-        console.print("[red]No API key configured[/red]")
-        console.print("Run: [bold]python chatbaz-cursor-proxy.py set-key[/bold]")
+    if not args.api_key or not args.api_key.strip():
+        console.print("[red]test command requires --api-key[/red]")
         return 1
 
-    api_key = storage.get_key()
-    if not api_key:
-        console.print("[red]Stored API key is unreadable[/red]")
-        return 1
-
-    console.print(f"[green]API key found:[/green] {storage.get_masked_key()}")
     console.print("[yellow]Testing ChatBAZ upstream...[/yellow]")
-
     test_url = f"{UPSTREAM_SCHEME}://{UPSTREAM_HOST}{UPSTREAM_PREFIX}/v1/models"
 
     try:
@@ -300,7 +174,7 @@ async def cmd_test(args: argparse.Namespace) -> int:
             response = await client.get(
                 test_url,
                 headers={
-                    "x-api-key": api_key,
+                    "x-api-key": args.api_key.strip(),
                 },
             )
 
@@ -321,21 +195,8 @@ async def cmd_test(args: argparse.Namespace) -> int:
 
 def start_proxy(args: argparse.Namespace) -> int:
     logger = setup_logger(args.verbose)
-    storage = CredentialStorage()
-
-    if not storage.has_key():
-        console.print(
-            Panel.fit(
-                "[bold red]No API key configured[/bold red]\n\n"
-                "Configure key first:\n"
-                "[bold]  python chatbaz-cursor-proxy.py set-key[/bold]",
-                border_style="red",
-            )
-        )
-        return 1
 
     console.print(Panel.fit(f"[bold cyan]{APP_NAME} Proxy v{VERSION}[/bold cyan]", border_style="cyan"))
-    console.print(f"[green]API key loaded:[/green] {storage.get_masked_key()}")
     console.print(f"[green]Proxy listening on[/green] [bold]127.0.0.1:{args.port}[/bold]")
     console.print(f"[dim]Logs: {LOG_FILE}[/dim]")
     console.print("━" * 50)
@@ -343,13 +204,14 @@ def start_proxy(args: argparse.Namespace) -> int:
     console.print(
         f"Forwarding to [cyan]{UPSTREAM_SCHEME}://{UPSTREAM_HOST}{UPSTREAM_PREFIX}[/cyan]"
     )
+    console.print("Passing through incoming [cyan]x-api-key[/cyan] header")
     console.print("[dim]Press Ctrl+C to stop[/dim]")
     console.print("━" * 50)
 
     logger.info(f"Starting {APP_NAME} proxy on port {args.port}")
 
     global addon_instance, addons
-    addon_instance = ChatBAZCursorAddon(storage, logger)
+    addon_instance = ChatBAZCursorAddon(logger)
     addons = [addon_instance]
 
     sys.argv = [
@@ -380,25 +242,15 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python chatbaz-cursor-proxy.py set-key
   python chatbaz-cursor-proxy.py start
   python chatbaz-cursor-proxy.py start --port 9090
-  python chatbaz-cursor-proxy.py test
+  python chatbaz-cursor-proxy.py test --api-key <KEY>
         """,
     )
 
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-
-    set_key_parser = subparsers.add_parser("set-key", help="Store ChatBAZ API key")
-    set_key_parser.add_argument(
-        "--api-key",
-        help="Set API key non-interactively (warning: shell history exposure)",
-    )
-    set_key_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
-    )
 
     start_parser = subparsers.add_parser("start", help="Start proxy server")
     start_parser.add_argument(
@@ -409,6 +261,7 @@ Examples:
     )
 
     test_parser = subparsers.add_parser("test", help="Test ChatBAZ connectivity")
+    test_parser.add_argument("--api-key", required=True, help="x-api-key value for test request")
     test_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
@@ -428,8 +281,6 @@ Examples:
 def main() -> None:
     args = parse_args()
 
-    if args.command == "set-key":
-        raise SystemExit(cmd_set_key(args))
     if args.command == "test":
         import asyncio
 

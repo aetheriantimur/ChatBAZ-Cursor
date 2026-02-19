@@ -1,8 +1,6 @@
 import importlib.util
 import logging
-import os
 import sys
-import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -118,67 +116,46 @@ class ChatBAZCursorProxyTests(unittest.TestCase):
         )
         self.assertEqual(proxy.build_upstream_path("/claude/v1/models"), "/claude/v1/models")
 
-    def test_credential_storage_permissions(self):
-        with tempfile.TemporaryDirectory() as td:
-            cred_path = Path(td) / "credentials.json"
-            storage = proxy.CredentialStorage(storage_path=cred_path)
-            storage.save("test-api-key-12345")
+    def test_addon_rewrites_and_preserves_incoming_x_api_key(self):
+        logger = logging.getLogger("test-addon-rewrite")
+        logger.handlers = []
+        logger.addHandler(logging.NullHandler())
 
-            self.assertTrue(cred_path.exists())
-            mode = os.stat(cred_path).st_mode & 0o777
-            self.assertEqual(mode, 0o600)
+        addon = proxy.ChatBAZCursorAddon(logger)
+        flow = FakeFlow(
+            "api.anthropic.com",
+            "/v1/messages?stream=true",
+            headers={
+                "x-api-key": "incoming-key-123",
+                "custom-header": "keep-me",
+            },
+        )
 
-            loaded = storage.load()
-            self.assertIsNotNone(loaded)
-            self.assertEqual(loaded["api_key"], "test-api-key-12345")
+        addon.request(flow)
 
-    def test_addon_rewrites_request(self):
-        with tempfile.TemporaryDirectory() as td:
-            cred_path = Path(td) / "credentials.json"
-            storage = proxy.CredentialStorage(storage_path=cred_path)
-            storage.save("chatbaz-test-key-12345")
+        self.assertEqual(flow.request.host, "chatbaz.app")
+        self.assertEqual(flow.request.scheme, "https")
+        self.assertEqual(flow.request.port, 443)
+        self.assertEqual(flow.request.path, "/claude/v1/messages?stream=true")
+        self.assertEqual(flow.request.headers.get("host"), "chatbaz.app")
+        self.assertEqual(flow.request.headers.get("x-api-key"), "incoming-key-123")
+        self.assertEqual(flow.request.headers.get("custom-header"), "keep-me")
+        self.assertTrue(flow.metadata.get("chatbaz_cursor_rewritten"))
 
-            logger = logging.getLogger("test-addon-rewrite")
-            logger.handlers = []
-            logger.addHandler(logging.NullHandler())
+    def test_addon_rewrites_even_when_x_api_key_missing(self):
+        logger = logging.getLogger("test-addon-no-key")
+        logger.handlers = []
+        logger.addHandler(logging.NullHandler())
 
-            addon = proxy.ChatBAZCursorAddon(storage, logger)
-            flow = FakeFlow(
-                "api.anthropic.com",
-                "/v1/messages?stream=true",
-                headers={
-                    "authorization": "Bearer old-token",
-                    "custom-header": "keep-me",
-                },
-            )
+        addon = proxy.ChatBAZCursorAddon(logger)
+        flow = FakeFlow("api.anthropic.com", "/v1/messages", headers={})
 
-            addon.request(flow)
+        addon.request(flow)
 
-            self.assertEqual(flow.request.host, "chatbaz.app")
-            self.assertEqual(flow.request.scheme, "https")
-            self.assertEqual(flow.request.port, 443)
-            self.assertEqual(flow.request.path, "/claude/v1/messages?stream=true")
-            self.assertEqual(flow.request.headers["x-api-key"], "chatbaz-test-key-12345")
-            self.assertNotIn("authorization", flow.request.headers)
-            self.assertEqual(flow.request.headers.get("custom-header"), "keep-me")
-            self.assertTrue(flow.metadata.get("chatbaz_cursor_rewritten"))
-
-    def test_addon_blocks_when_key_missing(self):
-        with tempfile.TemporaryDirectory() as td:
-            cred_path = Path(td) / "credentials.json"
-            storage = proxy.CredentialStorage(storage_path=cred_path)
-
-            logger = logging.getLogger("test-addon-missing-key")
-            logger.handlers = []
-            logger.addHandler(logging.NullHandler())
-
-            addon = proxy.ChatBAZCursorAddon(storage, logger)
-            flow = FakeFlow("api.anthropic.com", "/v1/messages", headers={})
-
-            addon.request(flow)
-
-            self.assertIsNotNone(flow.response)
-            self.assertEqual(flow.response.status_code, 401)
+        self.assertIsNone(flow.response)
+        self.assertEqual(flow.request.host, "chatbaz.app")
+        self.assertEqual(flow.request.path, "/claude/v1/messages")
+        self.assertNotIn("x-api-key", flow.request.headers)
 
 
 if __name__ == "__main__":
