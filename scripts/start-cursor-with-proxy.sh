@@ -1,8 +1,14 @@
 #!/bin/bash
-# Start Cursor with ChatBAZ proxy environment variables
+# Start Cursor with ChatBAZ proxy environment variables (macOS/Linux)
 
-echo "🚀 Starting Cursor with ChatBAZ Cursor Proxy"
+set -e
+
+echo "🚀 ChatBAZ Cursor - Start Cursor With Proxy"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "This script only starts Cursor with proxy env vars."
+echo "Run proxy first in another terminal:"
+echo "  python3 chatbaz-cursor-proxy.py start --verbose"
 echo ""
 
 # Check if mitmproxy cert exists
@@ -14,15 +20,18 @@ if [ ! -f "$CERT_FILE" ]; then
     echo ""
 fi
 
-# Set proxy environment variables
-export HTTP_PROXY=http://127.0.0.1:8080
-export HTTPS_PROXY=http://127.0.0.1:8080
+# Set proxy environment variables (allow override via CHATBAZ_PROXY_PORT)
+PROXY_PORT="${CHATBAZ_PROXY_PORT:-8080}"
+export HTTP_PROXY="http://127.0.0.1:${PROXY_PORT}"
+export HTTPS_PROXY="http://127.0.0.1:${PROXY_PORT}"
 export NODE_EXTRA_CA_CERTS="$CERT_FILE"
 
 echo "✓ Proxy environment configured:"
 echo "  HTTP_PROXY=$HTTP_PROXY"
 echo "  HTTPS_PROXY=$HTTPS_PROXY"
 echo "  NODE_EXTRA_CA_CERTS=$NODE_EXTRA_CA_CERTS"
+echo ""
+echo "Reminder: Cursor must have Anthropic API key filled (your ChatBAZ key)."
 echo ""
 echo "Starting Cursor..."
 echo ""

@@ -1,108 +1,124 @@
-# ChatBAZ Cursor Quickstart
+# ChatBAZ Cursor Quickstart (Customer Safe)
 
-## Cursor Mandatory Step (All OS)
+## Absolute Minimum Rules
 
-Before anything else, set customer key inside Cursor:
+1. Cursor must have Anthropic API key set (use ChatBAZ key).
+2. Proxy must run in Terminal 1.
+3. Cursor must be started with proxy env in Terminal 2.
+4. If step 3 is skipped, proxy cannot intercept anything.
 
-1. Open Cursor settings.
-2. Search `anthropic`.
-3. Paste ChatBAZ key into Anthropic API key field.
-4. Save and restart Cursor.
+---
 
-If this is missing, proxy still works but auth fails upstream because no `x-api-key` is sent.
+## macOS (copy/paste)
 
-## macOS
+Terminal 1:
 
 ```bash
 pip3 install -r requirements.txt
 mitmproxy
-# Ctrl+C
+# Ctrl+C after startup
 sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain \
   ~/.mitmproxy/mitmproxy-ca-cert.pem
-export HTTP_PROXY=http://127.0.0.1:8080
-export HTTPS_PROXY=http://127.0.0.1:8080
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 python3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-In a second terminal:
+Terminal 2:
 
 ```bash
-cursor .
+./scripts/start-cursor-with-proxy.sh
+```
+
+Check:
+
+```bash
 python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
-## Linux
+---
+
+## Linux (copy/paste)
+
+Terminal 1:
 
 ```bash
 pip3 install -r requirements.txt
 mitmproxy
-# Ctrl+C
+# Ctrl+C after startup
 ```
 
-Debian / Ubuntu:
+Debian/Ubuntu cert install:
 
 ```bash
 sudo cp ~/.mitmproxy/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/mitmproxy.crt
 sudo update-ca-certificates
 ```
 
-RHEL / CentOS / Fedora:
+RHEL/CentOS/Fedora cert install:
 
 ```bash
 sudo cp ~/.mitmproxy/mitmproxy-ca-cert.pem /etc/pki/ca-trust/source/anchors/mitmproxy.crt
 sudo update-ca-trust
 ```
 
-Then:
+Then start proxy (Terminal 1):
 
 ```bash
-export HTTP_PROXY=http://127.0.0.1:8080
-export HTTPS_PROXY=http://127.0.0.1:8080
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 python3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-In a second terminal:
+Terminal 2:
 
 ```bash
-cursor .
+./scripts/start-cursor-with-proxy.sh
+```
+
+Check:
+
+```bash
 python3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
-## Windows (PowerShell)
+---
+
+## Windows PowerShell (copy/paste)
+
+Terminal 1:
 
 ```powershell
 py -3 -m pip install -r requirements.txt
 mitmproxy
-# Ctrl+C
+# Ctrl+C after startup
 ```
 
-Admin PowerShell:
+Admin PowerShell (once):
 
 ```powershell
 certutil -addstore "Root" "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.pem"
 ```
 
-PowerShell session for Cursor:
+Then start proxy (Terminal 1):
 
 ```powershell
-$env:HTTP_PROXY="http://127.0.0.1:8080"
-$env:HTTPS_PROXY="http://127.0.0.1:8080"
-$env:NODE_EXTRA_CA_CERTS="$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.pem"
 py -3 chatbaz-cursor-proxy.py start --verbose
 ```
 
-In another PowerShell window:
+Terminal 2:
 
 ```powershell
-cursor .
+./scripts/start-cursor-with-proxy.ps1
+```
+
+Check:
+
+```powershell
 py -3 chatbaz-cursor-proxy.py test --api-key <YOUR_KEY>
 ```
 
-## Behavior
+---
 
-- Intercepts `api.anthropic.com`
+## Expected Behavior
+
+- Intercepts only proxied requests to `api.anthropic.com`
 - Forwards to `https://chatbaz.app/claude`
-- Preserves path/query and passes incoming `x-api-key` unchanged
+- Passes incoming `x-api-key` unchanged
